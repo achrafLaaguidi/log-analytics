@@ -1,0 +1,168 @@
+<div class="min-h-screen bg-slate-900 text-slate-100 p-8 font-sans">
+  
+  <!-- Header -->
+  <header class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        <span>🛡️</span> SIEM & Log Security Analytics
+      </h1>
+      <p class="text-slate-400 text-sm mt-1">Détection des menaces en temps réel propulsée par l'IA</p>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-3">
+      <button 
+        (click)="deleteAllLogs()" 
+        [disabled]="loading || logs.length === 0"
+        class="bg-red-900/40 hover:bg-red-800/60 text-red-300 border border-red-500/30 px-4 py-2 rounded-lg text-sm transition font-medium flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+        <span>🗑️</span> Effacer les journaux
+      </button>
+
+      <button 
+        (click)="fetchLogs()" 
+        [disabled]="loading"
+        class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm transition font-medium flex items-center gap-2 disabled:opacity-50">
+        <span>🔄</span> Actualiser
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI Cards -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+      <h3 class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Total Incidents</h3>
+      <p class="text-4xl font-extrabold text-white mt-2">{{ totalLogs }}</p>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+      <h3 class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Menaces Critiques</h3>
+      <p class="text-4xl font-extrabold text-red-500 mt-2">{{ criticalCount }}</p>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+      <h3 class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Score d'Anomalie Moyen</h3>
+      <p class="text-4xl font-extrabold text-amber-500 mt-2">{{ avgScore | number:'1.1-2' }}</p>
+    </div>
+  </section>
+
+  <!-- Main Table -->
+  <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-bold text-white">Journaux de Sécurité Suspects</h2>
+      <span *ngIf="!loading" class="text-green-400 text-xs font-semibold flex items-center gap-1">
+        <span class="animate-pulse">●</span> Flux en direct
+      </span>
+      <span *ngIf="loading" class="text-slate-400 text-xs animate-pulse">Chargement des données...</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table *ngIf="!loading && logs.length > 0" class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
+            <th class="p-4">ID</th>
+            <th class="p-4">Horodatage</th>
+            <th class="p-4">Hôte</th>
+            <th class="p-4">Statut</th>
+            <th class="p-4">Score</th>
+            <th class="p-4">Résumé IA (FR)</th>
+            <th class="p-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700 text-sm">
+          <tr *ngFor="let log of logs" class="hover:bg-slate-750 transition">
+            <td class="p-4 font-mono text-slate-300">#{{ log.id }}</td>
+            <td class="p-4 text-slate-400">{{ log.created_at | date:'shortTime' }}</td>
+            <td class="p-4"><code class="bg-slate-900 px-2 py-1 rounded text-sky-400 text-xs font-mono">{{ log.hostname }}</code></td>
+            <td class="p-4">
+              <span [ngClass]="{
+                'bg-red-500/10 text-red-400 border border-red-500/20': log.status === 'critical',
+                'bg-amber-500/10 text-amber-400 border border-amber-500/20': log.status !== 'critical'
+              }" class="px-2.5 py-1 rounded-md text-xs font-bold uppercase">
+                {{ log.status }}
+              </span>
+            </td>
+            <td class="p-4 font-bold" [class.text-red-400]="log.anomaly_score >= 0.8" [class.text-amber-400]="log.anomaly_score < 0.8">
+              {{ log.anomaly_score }}
+            </td>
+            <td class="p-4 text-slate-300 max-w-xs truncate">
+              {{ log.ai_analysis?.summary_fr || 'Analyse en cours...' }}
+            </td>
+            <td class="p-4 text-right">
+              <button (click)="openLogDetails(log)" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs transition">
+                Voir l'analyse
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!loading && logs.length === 0" class="text-center py-8 text-slate-400">
+      <p>Aucun journal suspect trouvé.</p>
+    </div>
+  </section>
+
+  <!-- Detail Modal -->
+  <div *ngIf="selectedLog" (click)="closeModal()" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div (click)="$event.stopPropagation()" class="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-6">
+      
+      <div class="flex justify-between items-center border-b border-slate-700 pb-4">
+        <h2 class="text-lg font-bold text-white">Analyse d'Incident #{{ selectedLog.id }}</h2>
+        <button (click)="closeModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Message Original :</label>
+          <pre class="bg-slate-950 p-3 rounded-lg text-xs text-slate-200 font-mono whitespace-pre-wrap break-all border border-slate-800">{{ selectedLog.message }}</pre>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+            <label class="block text-xs font-semibold text-sky-400 uppercase mb-1">🇫🇷 Résumé en Français :</label>
+            <p class="text-sm text-slate-200">{{ selectedLog.ai_analysis?.summary_fr || 'N/A' }}</p>
+          </div>
+          <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+            <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1">🇲🇦 Résumé en Arabe :</label>
+            <p class="text-sm text-slate-200 dir-rtl text-right font-sans">{{ selectedLog.ai_analysis?.summary_ar || 'N/A' }}</p>
+          </div>
+        </div>
+
+        <div class="bg-sky-500/10 border-l-4 border-sky-400 p-4 rounded-r-lg">
+          <label class="block text-xs font-bold text-sky-400 uppercase mb-1">⚡ Action Recommandée :</label>
+          <p class="text-sm text-slate-200">{{ selectedLog.ai_analysis?.recommended_action || 'Aucune action spécifiée' }}</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 border-t border-slate-700 pt-4">
+        <button (click)="blockIp()" class="bg-red-600 hover:bg-red-500 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
+          🚨 Bloquer l'IP Source
+        </button>
+        <button (click)="closeModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div *ngIf="toast" 
+       [ngClass]="{
+         'bg-emerald-600 text-white': toast.type === 'success',
+         'bg-red-600 text-white': toast.type === 'error',
+         'bg-sky-500 text-slate-950': toast.type === 'info'
+       }" 
+       class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl font-bold text-sm z-50 transition-all duration-300 transform translate-y-0">
+    <span>{{ toast.text }}</span>
+  </div>
+<app-confirm-toast
+  *ngIf="showConfirmModal"
+  title="Supprimer tous les journaux"
+  message="Êtes-vous sûr de vouloir effacer définitivement tous les journaux d'incidents ?"
+  confirmText="Oui, Supprimer tout"
+  cancelText="Annuler"
+  type="danger"
+  (confirm)="onConfirmDelete()"
+  (cancel)="showConfirmModal = false">
+</app-confirm-toast>
+</div>

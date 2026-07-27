@@ -1,9 +1,10 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { StatusPopups } from './components/status-popups/status-popups';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet,StatusPopups],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
